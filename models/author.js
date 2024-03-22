@@ -22,6 +22,14 @@ AuthorSchema.virtual("name").get(function () {
   return fullname;
 });
 
+AuthorSchema.virtual("ymd_date_of_birth").get(function () {
+  return DateTime.fromJSDate(this.date_of_birth).toISODate();
+});
+
+AuthorSchema.virtual("ymd_date_of_death").get(function () {
+  return DateTime.fromJSDate(this.date_of_death).toISODate();
+});
+
 AuthorSchema.virtual("lifespan").get(function () {
   let birth = this.date_of_birth
     ? DateTime.fromJSDate(this.date_of_birth).toLocaleString(DateTime.DATE_MED)
