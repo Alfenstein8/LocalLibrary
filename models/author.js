@@ -1,5 +1,6 @@
 const { DateTime } = require("luxon");
 const mongoose = require("mongoose");
+const mongooseFuzzySearch = require("mongoose-fuzzy-searching");
 
 const Schema = mongoose.Schema;
 
@@ -47,5 +48,8 @@ AuthorSchema.virtual("url").get(function () {
   return `/catalog/author/${this._id}`;
 });
 
+AuthorSchema.plugin(mongooseFuzzySearch, {
+  fields: ["first_name", "family_name"],
+});
 // Export model
 module.exports = mongoose.model("Author", AuthorSchema);

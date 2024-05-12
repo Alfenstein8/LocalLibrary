@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const mongooseFuzzySearch = require("mongoose-fuzzy-searching");
 
 const Schema = mongoose.Schema;
 
@@ -16,6 +17,9 @@ BookSchema.virtual("url").get(function () {
   return `/catalog/book/${this._id}`;
 });
 
+BookSchema.plugin(mongooseFuzzySearch, {
+  fields: ["title", "summary", "isbn"],
+});
+
 // Export model
 module.exports = mongoose.model("Book", BookSchema);
-

@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const mongooseFuzzySearch = require("mongoose-fuzzy-searching");
 
 const Schema = mongoose.Schema;
 const GenreSchema = new Schema({
@@ -7,6 +8,10 @@ const GenreSchema = new Schema({
 
 GenreSchema.virtual("url").get(function () {
   return "/catalog/genre/" + this._id;
+});
+
+GenreSchema.plugin(mongooseFuzzySearch, {
+  fields: ["name"],
 });
 
 module.exports = mongoose.model("Genre", GenreSchema);

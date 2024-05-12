@@ -1,0 +1,35 @@
+extends layout
+block scripts
+  script(src="/javascripts/search.js")
+
+block content
+  h1= title
+
+  form(method="GET")
+    #searchBar
+      label(for="searchInput")
+      input#searchInput.form-control(type="text" placeholder="Search" name="q" required)
+      button.btn.btn-primary(type="submit") Search
+    #searchResults
+      #authors
+        if searchResults.authors.length
+          h2 Authors
+          ul
+            each author in searchResults.authors
+              li
+                a(href=author.url) #{author.name}
+      #books
+        if searchResults.books.length
+          h2 Books
+          ul
+            each book in searchResults.books
+              li
+                a(href=book.url) #{book.title}
+      #genres
+        if searchResults.genres.length
+          h2 Genres
+          ul
+            each genre in searchResults.genres
+              li
+                a(href=genre.url) #{genre.name}
+      

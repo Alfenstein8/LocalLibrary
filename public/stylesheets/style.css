@@ -3,3 +3,8 @@
   padding: 0;
   list-style: none;
 }
+
+#searchBar {
+  display: flex;
+  width: 50%;
+}
