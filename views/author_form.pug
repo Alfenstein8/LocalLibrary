@@ -3,8 +3,9 @@ extends layout
 block content
   h1=title
 
-  form(method='POST')
+  form(method='POST' enctype="multipart/form-data")
     div.form-group
+      input.form-control(type="file" name="photo")
       label(for='first_name') First Name:
       input#first_name.form-control(type='text', placeholder='First name (Christian)' name='first_name' required value=(undefined===author ? '' : author.first_name) )
       label(for='family_name') Family Name:

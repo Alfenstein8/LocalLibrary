@@ -2,6 +2,8 @@ const { body, validationResult } = require("express-validator");
 const Book = require("../models/book");
 const Author = require("../models/author");
 const asyncHandler = require("express-async-handler");
+const multer = require("multer");
+const { unlink } = require("fs");
 
 // Display list of all Authors.
 exports.author_list = asyncHandler(async (req, res, next) => {
@@ -41,6 +43,7 @@ exports.author_create_get = (req, res, next) => {
 
 // Handle Author create on POST.
 exports.author_create_post = [
+  multer({ dest: "./public/images" }).single("photo"),
   // Validate and sanitize fields.
   body("first_name")
     .trim()
@@ -76,6 +79,7 @@ exports.author_create_post = [
       family_name: req.body.family_name,
       date_of_birth: req.body.date_of_birth,
       date_of_death: req.body.date_of_death,
+      photo_path: "/images/" + req.file.filename,
     });
 
     if (!errors.isEmpty()) {
@@ -125,6 +129,13 @@ exports.author_delete_post = asyncHandler(async (req, res, next) => {
     Book.find({ author: req.params.id }, "title summary").exec(),
   ]);
 
+    const path = await Author.findById(req.params.id, "photo_path");
+    unlink("./public" + path.photo_path, (err) => {
+      if (err) {
+        throw err;
+      }
+    });
+
   if (allBooksByAuthor.length > 0) {
     // Author has books. Render in same way as for GET route.
     res.render("author_delete", {
@@ -151,6 +162,7 @@ exports.author_update_get = asyncHandler(async (req, res, next) => {
 
 // Handle Author update on POST.
 exports.author_update_post = [
+  multer({ dest: "./public/images" }).single("photo"),
   // Validate and sanitize fields.
   body("first_name")
     .trim()
@@ -186,7 +198,14 @@ exports.author_update_post = [
       family_name: req.body.family_name,
       date_of_birth: req.body.date_of_birth,
       date_of_death: req.body.date_of_death,
+      photo_path: "/images/" + req.file.filename,
       _id: req.params.id,
+    });
+    const path = await Author.findById(req.params.id, "photo_path");
+    unlink("./public" + path.photo_path, (err) => {
+      if (err) {
+        throw err;
+      }
     });
 
     if (!errors.isEmpty()) {
