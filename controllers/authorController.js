@@ -1,13 +1,22 @@
 const { body, validationResult } = require("express-validator");
 const Book = require("../models/book");
 const Author = require("../models/author");
+const { Author: Author_sql } = require("../models/author_sql");
+const { Book: Book_sql } = require("../models/book_sql");
+const { usingSQL } = require("../db");
 const asyncHandler = require("express-async-handler");
 const multer = require("multer");
 const { unlink } = require("fs");
 
 // Display list of all Authors.
 exports.author_list = asyncHandler(async (req, res, next) => {
-  const allAuthors = await Author.find().sort({ family_name: 1 }).exec();
+  const allAuthors = usingSQL
+    ? await Author_sql.findAll({
+        raw: true,
+        nest: true,
+      }) /* .map((el) => el.get({ plain: true })) */
+    : await Author.find().sort({ family_name: 1 }).exec();
+  console.log(allAuthors);
   res.render("author_list", {
     title: "Author List",
     author_list: allAuthors,
@@ -17,10 +26,15 @@ exports.author_list = asyncHandler(async (req, res, next) => {
 // Display detail page for a specific Author.
 exports.author_detail = asyncHandler(async (req, res, next) => {
   // Get details of author and all their books (in parallel)
-  const [author, allBooksByAuthor] = await Promise.all([
-    Author.findById(req.params.id).exec(),
-    Book.find({ author: req.params.id }, "title summary").exec(),
-  ]);
+  const [author, allBooksByAuthor] = usingSQL
+    ? await Promise.all([
+        Author_sql.findByPk(req.params.id, { raw: true, nest: true }),
+        Book_sql.findAll({ author: req.params.id }),
+      ])
+    : await Promise.all([
+        Author.findById(req.params.id).exec(),
+        Book.find({ author: req.params.id }, "title summary").exec(),
+      ]);
 
   if (author === null) {
     // No results.
@@ -72,15 +86,21 @@ exports.author_create_post = [
   asyncHandler(async (req, res, next) => {
     // Extract the validation errors from a request.
     const errors = validationResult(req);
-
-    // Create Author object with escaped and trimmed data
-    const author = new Author({
+    const authorInfo = {
       first_name: req.body.first_name,
       family_name: req.body.family_name,
       date_of_birth: req.body.date_of_birth,
       date_of_death: req.body.date_of_death,
       photo_path: "/images/" + req.file.filename,
-    });
+    };
+
+    let author;
+    if (usingSQL) {
+      author = Author_sql.build(authorInfo);
+    } else {
+      // Create Author object with escaped and trimmed data
+      author = new Author(authorInfo);
+    }
 
     if (!errors.isEmpty()) {
       // There are errors. Render form again with sanitized values/errors messages.
@@ -129,12 +149,12 @@ exports.author_delete_post = asyncHandler(async (req, res, next) => {
     Book.find({ author: req.params.id }, "title summary").exec(),
   ]);
 
-    const path = await Author.findById(req.params.id, "photo_path");
-    unlink("./public" + path.photo_path, (err) => {
-      if (err) {
-        throw err;
-      }
-    });
+  const path = await Author.findById(req.params.id, "photo_path");
+  unlink("./public" + path.photo_path, (err) => {
+    if (err) {
+      throw err;
+    }
+  });
 
   if (allBooksByAuthor.length > 0) {
     // Author has books. Render in same way as for GET route.

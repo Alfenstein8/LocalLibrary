@@ -4,6 +4,11 @@ const Author = require("../models/author");
 const Genre = require("../models/genre");
 const BookInstance = require("../models/bookinstance");
 
+const { usingSQL } = require("../db");
+const { Author: Author_sql } = require("../models/author_sql");
+const { Genre: Genre_sql } = require("../models/genre_sql");
+const { Book: Book_sql } = require("../models/book_sql");
+
 const asyncHandler = require("express-async-handler");
 
 exports.index = asyncHandler(async (req, res, next) => {
@@ -67,10 +72,12 @@ exports.book_detail = asyncHandler(async (req, res, next) => {
 // Display book create form on GET.
 exports.book_create_get = asyncHandler(async (req, res, next) => {
   // Get all authors and genres, which we can use for adding to our book.
-  const [allAuthors, allGenres] = await Promise.all([
-    Author.find().sort({ family_name: 1 }).exec(),
-    Genre.find().sort({ name: 1 }).exec(),
-  ]);
+  const [allAuthors, allGenres] = usingSQL
+    ? await Promise.all([Author_sql.findAll(), Genre_sql.findAll()])
+    : await Promise.all([
+        Author.find().sort({ family_name: 1 }).exec(),
+        Genre.find().sort({ name: 1 }).exec(),
+      ]);
 
   res.render("book_form", {
     title: "Create Book",
@@ -111,23 +118,26 @@ exports.book_create_post = [
     // Extract the validation errors from a request.
     const errors = validationResult(req);
 
-    // Create a Book object with escaped and trimmed data.
-    const book = new Book({
+    const bookInfo = {
       title: req.body.title,
       author: req.body.author,
       summary: req.body.summary,
       isbn: req.body.isbn,
       genre: req.body.genre,
-    });
+    };
+    // Create a Book object with escaped and trimmed data.
+    const book = usingSQL ? Book_sql.build(bookInfo) : new Book(bookInfo);
 
     if (!errors.isEmpty()) {
       // There are errors. Render form again with sanitized values/error messages.
 
       // Get all authors and genres for form.
-      const [allAuthors, allGenres] = await Promise.all([
-        Author.find().sort({ family_name: 1 }).exec(),
-        Genre.find().sort({ name: 1 }).exec(),
-      ]);
+      const [allAuthors, allGenres] = usingSQL
+        ? await Promise.all([Author_sql.findAll(), Genre_sql.findAll()])
+        : await Promise.all([
+            Author.find().sort({ family_name: 1 }).exec(),
+            Genre.find().sort({ name: 1 }).exec(),
+          ]);
 
       // Mark our selected genres as checked.
       for (const genre of allGenres) {
