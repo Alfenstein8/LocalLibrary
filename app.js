@@ -10,6 +10,7 @@ var catalogRouter = require("./routes/catalog");
 
 const compression = require("compression");
 const helmet = require("helmet");
+let { config } = require("./db");
 
 var app = express();
 
@@ -43,6 +44,11 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(compression());
 app.use(express.static(path.join(__dirname, "public")));
+app.use((req, res, next) => {
+  res.locals.db = config.usingSQL ? "SQL" : "MongoDB";
+  console.log("Usin 1g " + res.locals.db);
+  next();
+})
 
 // Routers
 app.use("/", indexRouter);

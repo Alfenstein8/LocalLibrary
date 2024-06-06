@@ -13,6 +13,9 @@ html(lang='en')
       div(class='row')
         div(class='col-sm-2')
           block sidebar
+            #dbSwitch
+              button(class='btn btn-primary' id="switch") Switch database
+              h3= db
             ul(class='sidebar-nav')
               li
                 a(href='/catalog/search') Search
@@ -41,3 +44,4 @@ html(lang='en')
           block content
 
 block scripts
+  script(src="/javascripts/layout.js")

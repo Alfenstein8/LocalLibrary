@@ -3,11 +3,12 @@ const Book = require("../models/book");
 const Author = require("../models/author");
 const Genre = require("../models/genre");
 const BookInstance = require("../models/bookinstance");
-
-const { usingSQL } = require("../db");
+const { Op } = require("sequelize"); // Import the Op operator
+const { config } = require("../db");
 const { Author: Author_sql } = require("../models/author_sql");
 const { Genre: Genre_sql } = require("../models/genre_sql");
 const { Book: Book_sql } = require("../models/book_sql");
+const { BookInstance: BookInstance_sql } = require("../models/bookinstance_sql");
 
 const asyncHandler = require("express-async-handler");
 
@@ -19,13 +20,21 @@ exports.index = asyncHandler(async (req, res, next) => {
     numAvailableBookInstances,
     numAuthors,
     numGenres,
-  ] = await Promise.all([
-    Book.countDocuments({}).exec(),
-    BookInstance.countDocuments({}).exec(),
-    BookInstance.countDocuments({ status: "Available" }).exec(),
-    Author.countDocuments({}).exec(),
-    Genre.countDocuments({}).exec(),
-  ]);
+  ] = config.usingSQL
+    ? await Promise.all([
+        Book_sql.count(),
+        BookInstance_sql.count(),
+        BookInstance_sql.count({ where: { status: "Available" } }),
+        Author_sql.count(),
+        Genre_sql.count(),
+      ])
+    : await Promise.all([
+        Book.countDocuments({}).exec(),
+        BookInstance.countDocuments({}).exec(),
+        BookInstance.countDocuments({ status: "Available" }).exec(),
+        Author.countDocuments({}).exec(),
+        Genre.countDocuments({}).exec(),
+      ]);
 
   res.render("index", {
     title: "Local Library Home",
@@ -39,10 +48,18 @@ exports.index = asyncHandler(async (req, res, next) => {
 
 // Display list of all books.
 exports.book_list = asyncHandler(async (req, res, next) => {
-  const allBooks = await Book.find({}, "title author")
-    .sort({ title: 1 })
-    .populate("author")
-    .exec();
+  let allBooks;
+  if (config.usingSQL) {
+    allBooks = await Book_sql.findAll({
+      include: { model: Author_sql },
+    });
+  } else {
+    allBooks = await Book.find({}, "title author")
+      .sort({ title: 1 })
+      .populate("author")
+      .exec();
+  }
+  console.log(allBooks);
 
   res.render("book_list", { title: "Book List", book_list: allBooks });
 });
@@ -50,7 +67,7 @@ exports.book_list = asyncHandler(async (req, res, next) => {
 // Display detail page for a specific book.
 exports.book_detail = asyncHandler(async (req, res, next) => {
   // Get details of books, book instances for specific book
-  const [book, bookInstances] = usingSQL
+  const [book, bookInstances] = config.usingSQL
     ? await Promise.all([
         Book_sql.findByPk(req.params.id, {
           raw: true,
@@ -83,7 +100,7 @@ exports.book_detail = asyncHandler(async (req, res, next) => {
 // Display book create form on GET.
 exports.book_create_get = asyncHandler(async (req, res, next) => {
   // Get all authors and genres, which we can use for adding to our book.
-  const [allAuthors, allGenres] = usingSQL
+  const [allAuthors, allGenres] = config.usingSQL
     ? await Promise.all([Author_sql.findAll(), Genre_sql.findAll()])
     : await Promise.all([
         Author.find().sort({ family_name: 1 }).exec(),
@@ -138,28 +155,20 @@ exports.book_create_post = [
     };
     // Create a Book object with escaped and trimmed data.
     let book;
-    if (usingSQL) {
+    if (config.usingSQL) {
       delete bookInfo.author;
       delete bookInfo.genre;
 
       book = Book_sql.build(bookInfo);
-      console.log(req.body);
-      const [author, genre] = await Promise.all([
-        Author_sql.findByPk(req.body.author),
-        Genre_sql.findByPk(req.body.genre),
-      ]);
-      book.setAuthor(author);
-      book.setGenre(genre);
     } else {
       book = new Book(bookInfo);
     }
 
-    console.log(book.author);
     if (!errors.isEmpty()) {
       // There are errors. Render form again with sanitized values/error messages.
 
       // Get all authors and genres for form.
-      const [allAuthors, allGenres] = usingSQL
+      const [allAuthors, allGenres] = config.usingSQL
         ? await Promise.all([Author_sql.findAll(), Genre_sql.findAll()])
         : await Promise.all([
             Author.find().sort({ family_name: 1 }).exec(),
@@ -182,6 +191,14 @@ exports.book_create_post = [
     } else {
       // Data from form is valid. Save book.
       await book.save();
+      if (config.usingSQL) {
+        const [author, genre] = await Promise.all([
+          Author_sql.findByPk(req.body.author),
+          Genre_sql.findAll({ where: { _id: { [Op.in]: req.body.genre } } }),
+        ]);
+        await book.setAuthor(author);
+        await book.addGenres(genre);
+      }
       res.redirect(book.url);
     }
   }),

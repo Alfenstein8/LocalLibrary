@@ -1,11 +1,19 @@
 const { body, validationResult } = require("express-validator");
 const Book = require("../models/book");
 const Genre = require("../models/genre");
+const { Genre: Genre_sql } = require("../models/genre_sql");
+const { Book: Book_sql } = require("../models/book_sql");
 const asyncHandler = require("express-async-handler");
 
+const { config } = require("../db");
 // Display list of all Genre.
 exports.genre_list = asyncHandler(async (req, res, next) => {
-  const allGenres = await Genre.find().sort({ name: 1 }).exec();
+  let allGenres;
+  if (config.usingSQL) {
+    allGenres = await Genre_sql.findAll();
+  } else {
+    allGenres = await Genre.find().sort({ name: 1 }).exec();
+  }
   res.render("genre_list", {
     title: "Genre List",
     genre_list: allGenres,
@@ -15,10 +23,18 @@ exports.genre_list = asyncHandler(async (req, res, next) => {
 // Display detail page for a specific Genre.
 exports.genre_detail = asyncHandler(async (req, res, next) => {
   // Get details of genre and all associated books (in parallel)
-  const [genre, booksInGenre] = await Promise.all([
-    Genre.findById(req.params.id).exec(),
-    Book.find({ genre: req.params.id }, "title summary").exec(),
-  ]);
+  let genre, booksInGenre;
+  if (config.usingSQL) {
+    [genre, booksInGenre] = await Promise.all([
+      Genre_sql.findByPk(req.params.id),
+      Book_sql.findAll({ where: { genre: req.params.id } }),
+    ]);
+  } else {
+    [genre, booksInGenre] = await Promise.all([
+      Genre.findById(req.params.id).exec(),
+      Book.find({ genre: req.params.id }, "title summary").exec(),
+    ]);
+  }
   if (genre === null) {
     // No results.
     const err = new Error("Genre not found");
@@ -52,8 +68,12 @@ exports.genre_create_post = [
     const errors = validationResult(req);
 
     // Create a genre object with escaped and trimmed data.
-    const genre = new Genre({ name: req.body.name });
-
+    let genre;
+    if (config.usingSQL) {
+      genre = Genre_sql.build({ name: req.body.name });
+    } else {
+      genre = new Genre({ name: req.body.name });
+    }
     if (!errors.isEmpty()) {
       // There are errors. Render the form again with sanitized values/error messages.
       res.render("genre_form", {
@@ -65,7 +85,15 @@ exports.genre_create_post = [
     } else {
       // Data from form is valid.
       // Check if Genre with same name already exists.
-      const genreExists = await Genre.findOne({ name: req.body.name }).exec();
+      let genreExists;
+      if (config.usingSQL) {
+        genreExists = await Genre_sql.findOne({
+          where: { name: req.body.name },
+        });
+      } else {
+        genreExists = await Genre.findOne({ name: req.body.name }).exec();
+      }
+
       if (genreExists) {
         // Genre exists, redirect to its detail page.
         res.redirect(genreExists.url);

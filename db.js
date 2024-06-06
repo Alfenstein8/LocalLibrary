@@ -5,7 +5,13 @@ const sequelize = new Sequelize("localLibrary", "root", "secretPassword", {
 sequelize.authenticate().catch((error) => {
   console.error("Unable to connect to mariaDB:", error);
 });
-sequelize.sync({ alter: true });
+sequelize.sync({ force: true });
+const config = {
+  usingSQL: true,
+};
 
-let usingSQL = true;
-module.exports = { sequelize, DataTypes, usingSQL };
+function switchDatabase() {
+  config.usingSQL = !config.usingSQL;
+  return usingSQL;
+}
+module.exports = { sequelize, DataTypes, config, switchDatabase };

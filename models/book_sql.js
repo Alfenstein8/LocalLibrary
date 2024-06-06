@@ -27,7 +27,10 @@ const Book = sequelize.define("Book", {
   },
 });
 
+const BookGenre = sequelize.define('BookGenre', {
+  // add extra attributes here if needed
+});
 Book.belongsTo(Author, { foreignKey: "author" });
-Genre.hasMany(Book, { foreignKey: "genre" });
-
+Genre.belongsToMany(Book, { through: 'BookGenre', foreignKey: 'genre' });
+Book.belongsToMany(Genre, { through: 'BookGenre', foreignKey: 'book' });
 module.exports = { Book };

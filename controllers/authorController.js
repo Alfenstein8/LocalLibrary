@@ -3,7 +3,7 @@ const Book = require("../models/book");
 const Author = require("../models/author");
 const { Author: Author_sql } = require("../models/author_sql");
 const { Book: Book_sql } = require("../models/book_sql");
-const { usingSQL } = require("../db");
+const { config } = require("../db");
 const asyncHandler = require("express-async-handler");
 const multer = require("multer");
 const { unlink } = require("fs");
@@ -11,14 +11,13 @@ const { unlink } = require("fs");
 // Display list of all Authors.
 exports.author_list = asyncHandler(async (req, res, next) => {
   let allAuthors;
-  if (usingSQL) {
+  if (config.usingSQL) {
     allAuthors = await Author_sql.findAll();
     // allAuthors.map((el) => el.get({ plain: true }));
   } else {
     allAuthors = await Author.find().sort({ family_name: 1 }).exec();
   }
 
-  console.log(allAuthors);
   res.render("author_list", {
     title: "Author List",
     author_list: allAuthors,
@@ -28,7 +27,7 @@ exports.author_list = asyncHandler(async (req, res, next) => {
 // Display detail page for a specific Author.
 exports.author_detail = asyncHandler(async (req, res, next) => {
   // Get details of author and all their books (in parallel)
-  const [author, allBooksByAuthor] = usingSQL
+  const [author, allBooksByAuthor] = config.usingSQL
     ? await Promise.all([
         Author_sql.findByPk(req.params.id),
         Book_sql.findAll({ author: req.params.id }),
@@ -97,7 +96,7 @@ exports.author_create_post = [
     };
 
     let author;
-    if (usingSQL) {
+    if (config.usingSQL) {
       author = Author_sql.build(authorInfo);
     } else {
       // Create Author object with escaped and trimmed data
@@ -127,7 +126,7 @@ exports.author_create_post = [
 exports.author_delete_get = asyncHandler(async (req, res, next) => {
   let author, allBooksByAuthor;
 
-  if (usingSQL) {
+  if (config.usingSQL) {
     author = await Author_sql.findByPk(req.params.id);
     allBooksByAuthor = await Book_sql.findAll({ author: req.params.id });
   } else {
@@ -154,7 +153,7 @@ exports.author_delete_get = asyncHandler(async (req, res, next) => {
 exports.author_delete_post = asyncHandler(async (req, res, next) => {
   let author, allBooksByAuthor;
 
-  if (usingSQL) {
+  if (config.usingSQL) {
     author = await Author_sql.findByPk(req.params.id);
     allBooksByAuthor = await Book_sql.findAll({ author: req.params.id });
   } else {
@@ -181,7 +180,7 @@ exports.author_delete_post = asyncHandler(async (req, res, next) => {
     return;
   } else {
     // Author has no books. Delete object and redirect to the list of authors.
-    if (usingSQL) {
+    if (config.usingSQL) {
       await Author_sql.destroy({ where: { _id: req.body.authorid } });
     } else {
       await Author.findByIdAndDelete(req.body.authorid);
@@ -192,7 +191,7 @@ exports.author_delete_post = asyncHandler(async (req, res, next) => {
 
 // Display Author update form on GET.
 exports.author_update_get = asyncHandler(async (req, res, next) => {
-  const author = usingSQL
+  const author = config.usingSQL
     ? await Author_sql.findByPk(req.params.id)
     : await Author.findById(req.params.id).exec();
   res.render("author_form", {
@@ -243,7 +242,7 @@ exports.author_update_post = [
     };
 
     let author;
-    if (usingSQL) {
+    if (config.usingSQL) {
       author = Author_sql.build(authorInfo);
     } else {
       author = new Author(authorInfo);
@@ -261,7 +260,7 @@ exports.author_update_post = [
     } else {
       // Data from form is valid.
       let path;
-      if (usingSQL) {
+      if (config.usingSQL) {
         path = await Author_sql.findByPk(req.params.id);
       } else {
         path = await Author.findById(req.params.id);
@@ -274,7 +273,7 @@ exports.author_update_post = [
       });
 
       // Update author.
-      if (usingSQL) {
+      if (config.usingSQL) {
         author = await Author_sql.findByPk(req.params.id);
         author.set(authorInfo);
         await author.save();
