@@ -27,6 +27,6 @@ const BookInstance = sequelize.define("BookInstance", {
   },
 });
 
-BookInstance.hasOne(Book, { foreignKey: "book" });
+BookInstance.belongsTo(Book, { foreignKey: "book" });
 
 module.exports = { BookInstance };

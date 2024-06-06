@@ -50,14 +50,21 @@ exports.book_list = asyncHandler(async (req, res, next) => {
 // Display detail page for a specific book.
 exports.book_detail = asyncHandler(async (req, res, next) => {
   // Get details of books, book instances for specific book
-  const [book, bookInstances] = usingSQL 
+  const [book, bookInstances] = usingSQL
     ? await Promise.all([
-      Book_sql.findByPk(req.params.id, {raw:true,nest:true})
-    ])
+        Book_sql.findByPk(req.params.id, {
+          raw: true,
+          nest: true,
+          include: [{ model: Author_sql, as: "author" }],
+        }),
+      ])
     : await Promise.all([
-    Book.findById(req.params.id).populate("author").populate("genre").exec(),
-    BookInstance.find({ book: req.params.id }).exec(),
-  ]);
+        Book.findById(req.params.id)
+          .populate("author")
+          .populate("genre")
+          .exec(),
+        BookInstance.find({ book: req.params.id }).exec(),
+      ]);
 
   if (book === null) {
     // No results.
@@ -130,8 +137,24 @@ exports.book_create_post = [
       genre: req.body.genre,
     };
     // Create a Book object with escaped and trimmed data.
-    const book = usingSQL ? Book_sql.build(bookInfo) : new Book(bookInfo);
+    let book;
+    if (usingSQL) {
+      delete bookInfo.author;
+      delete bookInfo.genre;
 
+      book = Book_sql.build(bookInfo);
+      console.log(req.body);
+      const [author, genre] = await Promise.all([
+        Author_sql.findByPk(req.body.author),
+        Genre_sql.findByPk(req.body.genre),
+      ]);
+      book.setAuthor(author);
+      book.setGenre(genre);
+    } else {
+      book = new Book(bookInfo);
+    }
+
+    console.log(book.author);
     if (!errors.isEmpty()) {
       // There are errors. Render form again with sanitized values/error messages.
 

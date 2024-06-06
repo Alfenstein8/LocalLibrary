@@ -27,7 +27,7 @@ const Book = sequelize.define("Book", {
   },
 });
 
-Book.hasOne(Author, { foreignKey: "author" });
-Book.hasOne(Genre, { foreignKey: "genre" });
+Book.belongsTo(Author, { foreignKey: "author" });
+Genre.hasMany(Book, { foreignKey: "genre" });
 
 module.exports = { Book };

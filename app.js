@@ -30,7 +30,7 @@ const limiter = RateLimit({
   max: 20,
 });
 // Apply rate limiter to all requests
-app.use(limiter);
+// app.use(limiter);
 
 // view engine setup
 app.set("views", path.join(__dirname, "views"));

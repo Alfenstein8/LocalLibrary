@@ -5,7 +5,7 @@ const sequelize = new Sequelize("localLibrary", "root", "secretPassword", {
 sequelize.authenticate().catch((error) => {
   console.error("Unable to connect to mariaDB:", error);
 });
-sequelize.sync({ force: true });
+sequelize.sync({ alter: true });
 
 let usingSQL = true;
 module.exports = { sequelize, DataTypes, usingSQL };

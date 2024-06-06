@@ -10,12 +10,14 @@ const { unlink } = require("fs");
 
 // Display list of all Authors.
 exports.author_list = asyncHandler(async (req, res, next) => {
-  const allAuthors = usingSQL
-    ? await Author_sql.findAll({
-        raw: true,
-        nest: true,
-      }) /* .map((el) => el.get({ plain: true })) */
-    : await Author.find().sort({ family_name: 1 }).exec();
+  let allAuthors;
+  if (usingSQL) {
+    allAuthors = await Author_sql.findAll();
+    // allAuthors.map((el) => el.get({ plain: true }));
+  } else {
+    allAuthors = await Author.find().sort({ family_name: 1 }).exec();
+  }
+
   console.log(allAuthors);
   res.render("author_list", {
     title: "Author List",
@@ -28,7 +30,7 @@ exports.author_detail = asyncHandler(async (req, res, next) => {
   // Get details of author and all their books (in parallel)
   const [author, allBooksByAuthor] = usingSQL
     ? await Promise.all([
-        Author_sql.findByPk(req.params.id, { raw: true, nest: true }),
+        Author_sql.findByPk(req.params.id),
         Book_sql.findAll({ author: req.params.id }),
       ])
     : await Promise.all([
@@ -123,11 +125,18 @@ exports.author_create_post = [
 
 // Display Author delete form on GET.
 exports.author_delete_get = asyncHandler(async (req, res, next) => {
-  // Get details of author and all their books (in parallel)
-  const [author, allBooksByAuthor] = await Promise.all([
-    Author.findById(req.params.id).exec(),
-    Book.find({ author: req.params.id }, "title summary").exec(),
-  ]);
+  let author, allBooksByAuthor;
+
+  if (usingSQL) {
+    author = await Author_sql.findByPk(req.params.id);
+    allBooksByAuthor = await Book_sql.findAll({ author: req.params.id });
+  } else {
+    author = await Author.findById(req.params.id).exec();
+    allBooksByAuthor = await Book.find(
+      { author: req.params.id },
+      "title summary"
+    ).exec();
+  }
 
   if (author === null) {
     // No results.
@@ -143,16 +152,22 @@ exports.author_delete_get = asyncHandler(async (req, res, next) => {
 
 // Handle Author delete on POST.
 exports.author_delete_post = asyncHandler(async (req, res, next) => {
-  // Get details of author and all their books (in parallel)
-  const [author, allBooksByAuthor] = await Promise.all([
-    Author.findById(req.params.id).exec(),
-    Book.find({ author: req.params.id }, "title summary").exec(),
-  ]);
+  let author, allBooksByAuthor;
 
-  const path = await Author.findById(req.params.id, "photo_path");
-  unlink("./public" + path.photo_path, (err) => {
+  if (usingSQL) {
+    author = await Author_sql.findByPk(req.params.id);
+    allBooksByAuthor = await Book_sql.findAll({ author: req.params.id });
+  } else {
+    author = await Author.findById(req.params.id).exec();
+    allBooksByAuthor = await Book.find(
+      { author: req.params.id },
+      "title summary"
+    ).exec();
+  }
+
+  unlink("./public" + author.photo_path, (err) => {
     if (err) {
-      throw err;
+      // throw err;
     }
   });
 
@@ -166,14 +181,20 @@ exports.author_delete_post = asyncHandler(async (req, res, next) => {
     return;
   } else {
     // Author has no books. Delete object and redirect to the list of authors.
-    await Author.findByIdAndDelete(req.body.authorid);
+    if (usingSQL) {
+      await Author_sql.destroy({ where: { _id: req.body.authorid } });
+    } else {
+      await Author.findByIdAndDelete(req.body.authorid);
+    }
     res.redirect("/catalog/authors");
   }
 });
 
 // Display Author update form on GET.
 exports.author_update_get = asyncHandler(async (req, res, next) => {
-  const author = await Author.findById(req.params.id).exec();
+  const author = usingSQL
+    ? await Author_sql.findByPk(req.params.id)
+    : await Author.findById(req.params.id).exec();
   res.render("author_form", {
     title: "Update Author",
     author: author,
@@ -212,21 +233,21 @@ exports.author_update_post = [
     // Extract the validation errors from a request.
     const errors = validationResult(req);
 
-    // Create Author object with escaped and trimmed data
-    const author = new Author({
+    const authorInfo = {
       first_name: req.body.first_name,
       family_name: req.body.family_name,
       date_of_birth: req.body.date_of_birth,
       date_of_death: req.body.date_of_death,
       photo_path: "/images/" + req.file.filename,
       _id: req.params.id,
-    });
-    const path = await Author.findById(req.params.id, "photo_path");
-    unlink("./public" + path.photo_path, (err) => {
-      if (err) {
-        throw err;
-      }
-    });
+    };
+
+    let author;
+    if (usingSQL) {
+      author = Author_sql.build(authorInfo);
+    } else {
+      author = new Author(authorInfo);
+    }
 
     if (!errors.isEmpty()) {
       // There are errors. Render form again with sanitized values/errors messages.
@@ -235,12 +256,31 @@ exports.author_update_post = [
         author: author,
         errors: errors.array(),
       });
+
       return;
     } else {
       // Data from form is valid.
+      let path;
+      if (usingSQL) {
+        path = await Author_sql.findByPk(req.params.id);
+      } else {
+        path = await Author.findById(req.params.id);
+      }
+
+      unlink("./public" + path.photo_path, (err) => {
+        if (err) {
+          // throw err;
+        }
+      });
 
       // Update author.
-      await Author.findByIdAndUpdate(req.params.id, author);
+      if (usingSQL) {
+        author = await Author_sql.findByPk(req.params.id);
+        author.set(authorInfo);
+        await author.save();
+      } else {
+        await Author.findByIdAndUpdate(req.params.id, author);
+      }
       // Redirect to new author record.
       res.redirect(author.url);
     }
