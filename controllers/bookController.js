@@ -8,7 +8,9 @@ const { config } = require("../db");
 const { Author: Author_sql } = require("../models/author_sql");
 const { Genre: Genre_sql } = require("../models/genre_sql");
 const { Book: Book_sql } = require("../models/book_sql");
-const { BookInstance: BookInstance_sql } = require("../models/bookinstance_sql");
+const {
+  BookInstance: BookInstance_sql,
+} = require("../models/bookinstance_sql");
 
 const asyncHandler = require("express-async-handler");
 
@@ -70,8 +72,6 @@ exports.book_detail = asyncHandler(async (req, res, next) => {
   const [book, bookInstances] = config.usingSQL
     ? await Promise.all([
         Book_sql.findByPk(req.params.id, {
-          raw: true,
-          nest: true,
           include: [{ model: Author_sql, as: "author" }],
         }),
       ])
@@ -197,7 +197,7 @@ exports.book_create_post = [
           Genre_sql.findAll({ where: { _id: { [Op.in]: req.body.genre } } }),
         ]);
         await book.setAuthor(author);
-        await book.addGenres(genre);
+        await book.setGenres(genre);
       }
       res.redirect(book.url);
     }

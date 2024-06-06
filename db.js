@@ -7,7 +7,7 @@ sequelize.authenticate().catch((error) => {
 });
 sequelize.sync({ force: true });
 const config = {
-  usingSQL: true,
+  usingSQL: false,
 };
 
 function switchDatabase() {
